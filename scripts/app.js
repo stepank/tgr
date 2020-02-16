@@ -39,8 +39,6 @@ function init() {
   // window. is needed otherwise Safari explodes
 
   var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  var source;
-  var stream;
 
   var analyser = audioCtx.createAnalyser();
   analyser.minDecibels = -90;
@@ -48,24 +46,6 @@ function init() {
   analyser.smoothingTimeConstant = 0;
 
   var gainNode = audioCtx.createGain();
-
-  var soundSource;
-
-  ajaxRequest = new XMLHttpRequest();
-
-  ajaxRequest.open('GET', 'https://mdn.github.io/voice-change-o-matic/audio/concert-crowd.ogg', true);
-
-  ajaxRequest.responseType = 'arraybuffer';
-
-  ajaxRequest.onload = function () {
-    var audioData = ajaxRequest.response;
-
-    audioCtx.decodeAudioData(audioData, function (buffer) {
-      soundSource = audioCtx.createBufferSource();
-    }, function (e) { console.log("Error with decoding audio data" + e.err); });
-  };
-
-  ajaxRequest.send();
 
   // set up canvas context for visualizer
 
@@ -87,7 +67,7 @@ function init() {
     navigator.mediaDevices.getUserMedia(constraints)
       .then(
         function (stream) {
-          source = audioCtx.createMediaStreamSource(stream);
+          var source = audioCtx.createMediaStreamSource(stream);
           source.connect(gainNode);
           gainNode.connect(analyser);
           visualize();
