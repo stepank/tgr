@@ -97,6 +97,8 @@ function init() {
 
   function visualize() {
 
+    console.log("visu")
+
     WIDTH = canvas.width;
     HEIGHT = canvas.height;
 
@@ -125,9 +127,8 @@ function init() {
 
       for (var i = 0; i < bufferLength; i++) {
 
-        var amp = 1;
         var v = dataArray[i];
-        var y = HEIGHT / 2 * (1 + v * amp);
+        var y = HEIGHT * (1 - v * v);
 
         if (i === 0) {
           canvasCtx.moveTo(x, y);
