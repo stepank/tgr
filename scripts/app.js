@@ -4,6 +4,8 @@ document.body.onclick = init;
 
 function init() {
 
+  document.body.onclick = null;
+
   heading.textContent = 'Online Timegrapher';
 
   // Older browsers might not implement mediaDevices at all, so we set an empty object first
