@@ -97,30 +97,26 @@ function init() {
     console.log('getUserMedia not supported on your browser!');
   }
 
-  function sumSqrSlice(buffer, begin, end) {
-    var sum = 0;
-    for (var i = begin; i < end; i++) {
-      var v = buffer[i];
-      sum += v * v;
-    }
-    return sum;
-  }
-
   function process(buffer) {
 
-    const windowSize = 4 * 1024;
+    const windowSize = 1024;
 
     var result = new Float32Array(buffer.length - windowSize + 1);
-    var sum = sumSqrSlice(buffer, 0, windowSize);
 
-    for (var i = windowSize; i < buffer.length + 1; i++) {
-      result[i - windowSize] = sum / windowSize;
-      if (i < buffer.length + 1) {
-        var v1 = buffer[i - windowSize];
-        var v2 = buffer[i];
-        sum = sum - v1 * v1 + v2 * v2;
+    var sum = 0;
+    for (var i = 0; i < buffer.length; i++) {
+      var rem;
+      var add = buffer[i];
+      if (i < windowSize) {
+        rem = 0;
+      } else {
+        result[i - windowSize] = sum / windowSize;
+        rem = buffer[i - windowSize];
       }
+      sum += add * add - rem * rem;
     }
+
+    result[result.length - 1] = sum / windowSize;
 
     return result;
   }
