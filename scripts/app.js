@@ -97,14 +97,40 @@ function init() {
     console.log('getUserMedia not supported on your browser!');
   }
 
-  function visualize() {
+  function sumSqrSlice(buffer, begin, end) {
+    var sum = 0;
+    for (var i = begin; i < end; i++) {
+      var v = buffer[i];
+      sum += v * v;
+    }
+    return sum;
+  }
 
-    console.log("visu")
+  function process(buffer) {
+
+    const windowSize = 4 * 1024;
+
+    var result = new Float32Array(buffer.length - windowSize + 1);
+    var sum = sumSqrSlice(buffer, 0, windowSize);
+
+    for (var i = windowSize; i < buffer.length + 1; i++) {
+      result[i - windowSize] = sum / windowSize;
+      if (i < buffer.length + 1) {
+        var v1 = buffer[i - windowSize];
+        var v2 = buffer[i];
+        sum = sum - v1 * v1 + v2 * v2;
+      }
+    }
+
+    return result;
+  }
+
+  function visualize() {
 
     WIDTH = canvas.width;
     HEIGHT = canvas.height;
 
-    analyser.fftSize = 2048 * 16;
+    analyser.fftSize = 32 * 1024;
     var bufferLength = analyser.fftSize;
     var dataArray = new Float32Array(bufferLength);
 
@@ -124,13 +150,15 @@ function init() {
 
       canvasCtx.beginPath();
 
-      var sliceWidth = WIDTH * 1.0 / bufferLength;
+      processedDataArray = process(dataArray);
+      var sliceWidth = WIDTH * 1.0 / processedDataArray.length;
+
       var x = 0;
 
-      for (var i = 0; i < bufferLength; i++) {
+      for (var i = 0; i < processedDataArray.length; i++) {
 
-        var v = dataArray[i];
-        var y = HEIGHT * (1 - v * v);
+        var v = processedDataArray[i];
+        var y = HEIGHT * (1 - v);
 
         if (i === 0) {
           canvasCtx.moveTo(x, y);
