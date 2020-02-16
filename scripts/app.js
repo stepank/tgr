@@ -149,9 +149,9 @@ function init() {
 
     var parsed = parseInt(gainInput.value, 10);
 
-    if (isNaN(parsed) || parsed < 0 || parsed > 100) {
-      alert("Gain must be an integer between 0 and 100");
-      gainInput.value = 10;
+    if (isNaN(parsed) || parsed < 0 || parsed > 10000) {
+      alert("Gain must be an integer between 0 and 10000");
+      gainInput.value = gainNode.gain.value;
       return;
     }
 
