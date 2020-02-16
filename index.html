@@ -25,12 +25,17 @@
       <h1>Online Timegrapher</h1>
     </header>
 
-    <canvas class="visualizer" width="640" height="300" style="display: none"></canvas>
+    <div id="main" style="display: none">
+
+      <canvas class="visualizer" width="640" height="200"></canvas>
+
+      <div class="controls">
+        Gain: <input type="text" name="gain" id="gainInput" value="10" />
+      </div>
+
+    </div>
 
   </div>
-
-  <!-- The following element pulls in the script for the default template functionality -->
-  <script src="scripts/install.js"></script>
 
   <!-- Below is your custom application script -->
   <script src="scripts/app.js"></script>

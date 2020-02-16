@@ -41,8 +41,8 @@ function init() {
   var stream;
 
   var analyser = audioCtx.createAnalyser();
-  analyser.minDecibels = -100;
-  analyser.maxDecibels = 100;
+  analyser.minDecibels = -90;
+  analyser.maxDecibels = -10;
   analyser.smoothingTimeConstant = 0;
 
   var gainNode = audioCtx.createGain();
@@ -73,12 +73,14 @@ function init() {
   var intendedWidth = document.querySelector('.wrapper').clientWidth;
 
   canvas.setAttribute('width', intendedWidth);
-  canvas.setAttribute('style', "");
+
+  var main = document.getElementById("main")
+  main.setAttribute('style', "");
 
   // main block for doing the audio recording
 
   if (navigator.mediaDevices.getUserMedia) {
-    console.log('getUserMedia supported.');
+    console.log('getUserMedia is supported');
     var constraints = { audio: true }
     navigator.mediaDevices.getUserMedia(constraints)
       .then(
@@ -100,7 +102,6 @@ function init() {
 
     analyser.fftSize = 2048 * 16;
     var bufferLength = analyser.fftSize;
-    console.log(bufferLength);
     var dataArray = new Float32Array(bufferLength);
 
     canvasCtx.clearRect(0, 0, WIDTH, HEIGHT);
@@ -124,7 +125,7 @@ function init() {
 
       for (var i = 0; i < bufferLength; i++) {
 
-        var amp = 10;
+        var amp = 1;
         var v = dataArray[i];
         var y = HEIGHT / 2 * (1 + v * amp);
 
@@ -143,4 +144,22 @@ function init() {
 
     draw();
   }
+
+  var gainChange = function (event) {
+
+    var parsed = parseInt(gainInput.value, 10);
+
+    if (isNaN(parsed) || parsed < 0 || parsed > 100) {
+      alert("Gain must be an integer between 0 and 100");
+      gainInput.value = 10;
+      return;
+    }
+
+    gainNode.gain.value = parsed;
+  }
+
+  var gainInput = document.getElementById("gainInput");
+  gainInput.onchange = gainChange;
+
+  gainChange();
 }

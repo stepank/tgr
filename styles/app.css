@@ -37,6 +37,11 @@ canvas {
   margin-bottom: -3px;
 }
 
+.controls {
+  text-align: center;
+  margin-top: 20px;
+}
+
 @media (min-width: 481px) {
   /*CSS for medium width screens*/
 }
