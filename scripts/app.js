@@ -41,6 +41,7 @@ function init() {
   var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
   var analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 32 * 1024;
   analyser.minDecibels = -90;
   analyser.maxDecibels = -10;
   analyser.smoothingTimeConstant = 0;
@@ -65,40 +66,22 @@ function init() {
     console.log('getUserMedia is supported');
     var constraints = { audio: true }
     navigator.mediaDevices.getUserMedia(constraints)
-      .then(
-        function (stream) {
-          var source = audioCtx.createMediaStreamSource(stream);
-          source.connect(gainNode);
-          gainNode.connect(analyser);
-          visualize();
-        })
+      .then(function (stream) {
+
+        var source = audioCtx.createMediaStreamSource(stream);
+        var destination = audioCtx.createMediaStreamDestination();
+
+        source.connect(gainNode);
+        gainNode.connect(analyser);
+        analyser.connect(destination);
+
+        visualize();
+
+        startRecording(destination.stream, 2000).then(processRecordedBlob);
+      })
       .catch(function (err) { console.log('The following gUM error occured: ' + err); })
   } else {
     console.log('getUserMedia not supported on your browser!');
-  }
-
-  function process(buffer) {
-
-    const windowSize = 1024;
-
-    var result = new Float32Array(buffer.length - windowSize + 1);
-
-    var sum = 0;
-    for (var i = 0; i < buffer.length; i++) {
-      var rem;
-      var add = buffer[i];
-      if (i < windowSize) {
-        rem = 0;
-      } else {
-        result[i - windowSize] = sum / windowSize;
-        rem = buffer[i - windowSize];
-      }
-      sum += add * add - rem * rem;
-    }
-
-    result[result.length - 1] = sum / windowSize;
-
-    return result;
   }
 
   function visualize() {
@@ -106,7 +89,6 @@ function init() {
     WIDTH = canvas.width;
     HEIGHT = canvas.height;
 
-    analyser.fftSize = 32 * 1024;
     var bufferLength = analyser.fftSize;
     var dataArray = new Float32Array(bufferLength);
 
@@ -150,6 +132,67 @@ function init() {
     };
 
     draw();
+  }
+
+  function process(buffer) {
+
+    const windowSize = 1024;
+
+    var result = new Float32Array(buffer.length - windowSize + 1);
+
+    var sum = 0;
+    for (var i = 0; i < buffer.length; i++) {
+      var rem;
+      var add = buffer[i];
+      if (i < windowSize) {
+        rem = 0;
+      } else {
+        result[i - windowSize] = sum / windowSize;
+        rem = buffer[i - windowSize];
+      }
+      sum += add * add - rem * rem;
+    }
+
+    result[result.length - 1] = sum / windowSize;
+
+    return result;
+  }
+
+  function startRecording(stream, lengthInMs) {
+
+    let data = [];
+
+    let recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = event => {
+      data.push(event.data);
+    }
+
+    recorder.start(500);
+    console.log(recorder.state + " for " + (lengthInMs / 1000) + " seconds...");
+
+    let stopped = new Promise((resolve, reject) => {
+      recorder.onstop = resolve;
+      recorder.onerror = event => reject(event.name);
+    });
+
+    let recorded = wait(lengthInMs).then(
+      () => recorder.state == "recording" && recorder.stop()
+    );
+
+    return Promise.all([stopped, recorded])
+      .then(() => {
+        return new Blob(data, { 'type': 'audio/ogg; codecs=opus' });
+      });
+  }
+
+  async function processRecordedBlob(blob) {
+    var arrayBuffer = await blob.arrayBuffer()
+    var audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
+    console.log(audioBuffer)
+  }
+
+  function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   var gainChange = function (event) {
