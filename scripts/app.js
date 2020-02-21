@@ -77,7 +77,7 @@ function init() {
 
                 visualize()
 
-                startRecording(destination.stream, 2000).then(processRecordedBlob)
+                startRecording(destination.stream, 5000).then(processRecordedBlob)
             })
             .catch(err =>
                 console.log('The following gUM error occured: ' + err)
@@ -85,6 +85,8 @@ function init() {
     } else {
         console.log('getUserMedia not supported on your browser!')
     }
+
+    var recordedDataArray = null;
 
     function visualize() {
 
@@ -98,9 +100,12 @@ function init() {
 
         var draw = function () {
 
-            drawVisual = requestAnimationFrame(draw)
-
-            analyser.getFloatTimeDomainData(dataArray)
+            if (recordedDataArray == null) {
+                drawVisual = requestAnimationFrame(draw)
+                analyser.getFloatTimeDomainData(dataArray)
+            } else {
+                dataArray = recordedDataArray
+            }
 
             canvasCtx.fillStyle = 'rgb(255, 255, 255)'
             canvasCtx.fillRect(0, 0, WIDTH, HEIGHT)
@@ -165,7 +170,7 @@ function init() {
         let data = []
 
         let recorder = new MediaRecorder(stream)
-        recorder.ondataavailable = event => {
+        recorder.ondataavailable = async event => {
             data.push(event.data)
         }
 
@@ -188,9 +193,13 @@ function init() {
     }
 
     async function processRecordedBlob(blob) {
+
         var arrayBuffer = await blob.arrayBuffer()
         var audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
+
         console.log(audioBuffer)
+
+        recordedDataArray = audioBuffer.getChannelData(0)
     }
 
     function wait(ms) {
