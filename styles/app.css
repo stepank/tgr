@@ -1,58 +1,58 @@
 /* || General layout rules for narrow screens */
 
 html {
-  height: 100%;
-  font-size: 10px;
+    height: 100%;
+    font-size: 10px;
 }
 
 body {
-  width: 100%;
-  height: inherit;
+    width: 100%;
+    height: inherit;
 }
 
 h1, h2, label {
-  font-size: 3rem;
-  text-align: center;
-  color: black;
-  margin: 0;
+    font-size: 3rem;
+    text-align: center;
+    color: black;
+    margin: 0;
 }
 
 h1 {
-  font-size: 3.5rem;
-  padding-top: 1.2rem;
+    font-size: 3.5rem;
+    padding-top: 1.2rem;
 }
 
 .wrapper {
-  height: 100%;
-  max-width: 800px;
-  margin: 0 auto;
+    height: 100%;
+    max-width: 800px;
+    margin: 0 auto;
 }
 
 header {
-  height: 120px;
+    height: 120px;
 }
 
 canvas {
-  border: 1px solid black;
-  margin-bottom: -3px;
+    border: 1px solid black;
+    margin-bottom: -3px;
 }
 
 .controls {
-  text-align: center;
-  margin-top: 20px;
+    text-align: center;
+    margin-top: 20px;
 }
 
 @media (min-width: 481px) {
-  /*CSS for medium width screens*/
+    /*CSS for medium width screens*/
 }
 
 @media all and (min-width: 800px) {
-  h1 {
-    font-size: 5rem;
-    padding-top: 2.5rem;
-  }
+    h1 {
+        font-size: 5rem;
+        padding-top: 2.5rem;
+    }
 }
 
 @media (min-width: 1100px) {
-  /*CSS for really wide screens*/
+    /*CSS for really wide screens*/
 }

@@ -1,215 +1,217 @@
-let heading = document.querySelector('h1');
+let heading = document.querySelector('h1')
 heading.textContent = 'Click anywhere to start'
-document.body.onclick = init;
+document.body.onclick = init
 
 function init() {
 
-  document.body.onclick = null;
+    document.body.onclick = null
 
-  heading.textContent = 'Online Timegrapher';
+    heading.textContent = 'Online Timegrapher'
 
-  // Older browsers might not implement mediaDevices at all, so we set an empty object first
-  if (navigator.mediaDevices === undefined) {
-    navigator.mediaDevices = {};
-  }
-
-  // Some browsers partially implement mediaDevices. We can't just assign an object
-  // with getUserMedia as it would overwrite existing properties.
-  // Here, we will just add the getUserMedia property if it's missing.
-  if (navigator.mediaDevices.getUserMedia === undefined) {
-    navigator.mediaDevices.getUserMedia = function (constraints) {
-
-      // First get ahold of the legacy getUserMedia, if present
-      var getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
-
-      // Some browsers just don't implement it - return a rejected promise with an error
-      // to keep a consistent interface
-      if (!getUserMedia) {
-        return Promise.reject(new Error('getUserMedia is not implemented in this browser'));
-      }
-
-      // Otherwise, wrap the call to the old navigator.getUserMedia with a Promise
-      return new Promise(function (resolve, reject) {
-        getUserMedia.call(navigator, constraints, resolve, reject);
-      });
+    // Older browsers might not implement mediaDevices at all, so we set an empty object first
+    if (navigator.mediaDevices === undefined) {
+        navigator.mediaDevices = {}
     }
-  }
 
-  // set up forked web audio context, for multiple browsers
-  // window. is needed otherwise Safari explodes
+    // Some browsers partially implement mediaDevices. We can't just assign an object
+    // with getUserMedia as it would overwrite existing properties.
+    // Here, we will just add the getUserMedia property if it's missing.
+    if (navigator.mediaDevices.getUserMedia === undefined) {
+        navigator.mediaDevices.getUserMedia = function (constraints) {
 
-  var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            // First get ahold of the legacy getUserMedia, if present
+            var getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia
 
-  var analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 32 * 1024;
-  analyser.minDecibels = -90;
-  analyser.maxDecibels = -10;
-  analyser.smoothingTimeConstant = 0;
+            // Some browsers just don't implement it - return a rejected promise with an error
+            // to keep a consistent interface
+            if (!getUserMedia) {
+                return Promise.reject(new Error('getUserMedia is not implemented in this browser'))
+            }
 
-  var gainNode = audioCtx.createGain();
+            // Otherwise, wrap the call to the old navigator.getUserMedia with a Promise
+            return new Promise(function (resolve, reject) {
+                getUserMedia.call(navigator, constraints, resolve, reject)
+            })
+        }
+    }
 
-  // set up canvas context for visualizer
+    // set up forked web audio context, for multiple browsers
+    // window. is needed otherwise Safari explodes
 
-  var canvas = document.querySelector('.visualizer');
-  var canvasCtx = canvas.getContext("2d");
+    var audioCtx = new (window.AudioContext || window.webkitAudioContext)()
 
-  var intendedWidth = document.querySelector('.wrapper').clientWidth;
+    var analyser = audioCtx.createAnalyser()
+    analyser.fftSize = 32 * 1024
+    analyser.minDecibels = -90
+    analyser.maxDecibels = -10
+    analyser.smoothingTimeConstant = 0
 
-  canvas.setAttribute('width', intendedWidth);
+    var gainNode = audioCtx.createGain()
 
-  var main = document.getElementById("main")
-  main.setAttribute('style', "");
+    // set up canvas context for visualizer
 
-  // main block for doing the audio recording
+    var canvas = document.querySelector('.visualizer')
+    var canvasCtx = canvas.getContext("2d")
 
-  if (navigator.mediaDevices.getUserMedia) {
-    console.log('getUserMedia is supported');
-    var constraints = { audio: true }
-    navigator.mediaDevices.getUserMedia(constraints)
-      .then(function (stream) {
+    var intendedWidth = document.querySelector('.wrapper').clientWidth
 
-        var source = audioCtx.createMediaStreamSource(stream);
-        var destination = audioCtx.createMediaStreamDestination();
+    canvas.setAttribute('width', intendedWidth)
 
-        source.connect(gainNode);
-        gainNode.connect(analyser);
-        analyser.connect(destination);
+    var main = document.getElementById("main")
+    main.setAttribute('style', "")
 
-        visualize();
+    // main block for doing the audio recording
 
-        startRecording(destination.stream, 2000).then(processRecordedBlob);
-      })
-      .catch(function (err) { console.log('The following gUM error occured: ' + err); })
-  } else {
-    console.log('getUserMedia not supported on your browser!');
-  }
+    if (navigator.mediaDevices.getUserMedia) {
+        console.log('getUserMedia is supported')
+        var constraints = { audio: true }
+        navigator.mediaDevices.getUserMedia(constraints)
+            .then(stream => {
 
-  function visualize() {
+                var source = audioCtx.createMediaStreamSource(stream)
+                var destination = audioCtx.createMediaStreamDestination()
 
-    WIDTH = canvas.width;
-    HEIGHT = canvas.height;
+                source.connect(gainNode)
+                gainNode.connect(analyser)
+                analyser.connect(destination)
 
-    var bufferLength = analyser.fftSize;
-    var dataArray = new Float32Array(bufferLength);
+                visualize()
 
-    canvasCtx.clearRect(0, 0, WIDTH, HEIGHT);
+                startRecording(destination.stream, 2000).then(processRecordedBlob)
+            })
+            .catch(err =>
+                console.log('The following gUM error occured: ' + err)
+            )
+    } else {
+        console.log('getUserMedia not supported on your browser!')
+    }
 
-    var draw = function () {
+    function visualize() {
 
-      drawVisual = requestAnimationFrame(draw);
+        WIDTH = canvas.width
+        HEIGHT = canvas.height
 
-      analyser.getFloatTimeDomainData(dataArray);
+        var bufferLength = analyser.fftSize
+        var dataArray = new Float32Array(bufferLength)
 
-      canvasCtx.fillStyle = 'rgb(255, 255, 255)';
-      canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
+        canvasCtx.clearRect(0, 0, WIDTH, HEIGHT)
 
-      canvasCtx.lineWidth = 1;
-      canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
+        var draw = function () {
 
-      canvasCtx.beginPath();
+            drawVisual = requestAnimationFrame(draw)
 
-      processedDataArray = process(dataArray);
-      var sliceWidth = WIDTH * 1.0 / processedDataArray.length;
+            analyser.getFloatTimeDomainData(dataArray)
 
-      var x = 0;
+            canvasCtx.fillStyle = 'rgb(255, 255, 255)'
+            canvasCtx.fillRect(0, 0, WIDTH, HEIGHT)
 
-      for (var i = 0; i < processedDataArray.length; i++) {
+            canvasCtx.lineWidth = 1
+            canvasCtx.strokeStyle = 'rgb(0, 0, 0)'
 
-        var v = processedDataArray[i];
-        var y = HEIGHT * (1 - v);
+            canvasCtx.beginPath()
 
-        if (i === 0) {
-          canvasCtx.moveTo(x, y);
-        } else {
-          canvasCtx.lineTo(x, y);
+            processedDataArray = process(dataArray)
+            var sliceWidth = WIDTH * 1.0 / processedDataArray.length
+
+            var x = 0
+
+            for (var i = 0; i < processedDataArray.length; i++) {
+
+                var v = processedDataArray[i]
+                var y = HEIGHT * (1 - v)
+
+                if (i === 0) {
+                    canvasCtx.moveTo(x, y)
+                } else {
+                    canvasCtx.lineTo(x, y)
+                }
+
+                x += sliceWidth
+            }
+
+            canvasCtx.lineTo(canvas.width, canvas.height / 2)
+            canvasCtx.stroke()
         }
 
-        x += sliceWidth;
-      }
-
-      canvasCtx.lineTo(canvas.width, canvas.height / 2);
-      canvasCtx.stroke();
-    };
-
-    draw();
-  }
-
-  function process(buffer) {
-
-    const windowSize = 1024;
-
-    var result = new Float32Array(buffer.length - windowSize + 1);
-
-    var sum = 0;
-    for (var i = 0; i < buffer.length; i++) {
-      var rem;
-      var add = buffer[i];
-      if (i < windowSize) {
-        rem = 0;
-      } else {
-        result[i - windowSize] = sum / windowSize;
-        rem = buffer[i - windowSize];
-      }
-      sum += add * add - rem * rem;
+        draw()
     }
 
-    result[result.length - 1] = sum / windowSize;
+    function process(buffer) {
 
-    return result;
-  }
+        const windowSize = 1024
 
-  function startRecording(stream, lengthInMs) {
+        var result = new Float32Array(buffer.length - windowSize + 1)
 
-    let data = [];
+        var sum = 0
+        for (var i = 0; i < buffer.length; i++) {
+            var rem
+            var add = buffer[i]
+            if (i < windowSize) {
+                rem = 0
+            } else {
+                result[i - windowSize] = sum / windowSize
+                rem = buffer[i - windowSize]
+            }
+            sum += add * add - rem * rem
+        }
 
-    let recorder = new MediaRecorder(stream);
-    recorder.ondataavailable = event => {
-      data.push(event.data);
+        result[result.length - 1] = sum / windowSize
+
+        return result
     }
 
-    recorder.start(500);
-    console.log(recorder.state + " for " + (lengthInMs / 1000) + " seconds...");
+    function startRecording(stream, lengthInMs) {
 
-    let stopped = new Promise((resolve, reject) => {
-      recorder.onstop = resolve;
-      recorder.onerror = event => reject(event.name);
-    });
+        let data = []
 
-    let recorded = wait(lengthInMs).then(
-      () => recorder.state == "recording" && recorder.stop()
-    );
+        let recorder = new MediaRecorder(stream)
+        recorder.ondataavailable = event => {
+            data.push(event.data)
+        }
 
-    return Promise.all([stopped, recorded])
-      .then(() => {
-        return new Blob(data, { 'type': 'audio/ogg; codecs=opus' });
-      });
-  }
+        recorder.start(500)
+        console.log(recorder.state + " for " + (lengthInMs / 1000) + " seconds...")
 
-  async function processRecordedBlob(blob) {
-    var arrayBuffer = await blob.arrayBuffer()
-    var audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
-    console.log(audioBuffer)
-  }
+        let stopped = new Promise((resolve, reject) => {
+            recorder.onstop = resolve
+            recorder.onerror = event => reject(event.name)
+        })
 
-  function wait(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
+        let recorded = wait(lengthInMs).then(
+            () => recorder.state == "recording" && recorder.stop()
+        )
 
-  var gainChange = function (event) {
-
-    var parsed = parseInt(gainInput.value, 10);
-
-    if (isNaN(parsed) || parsed < 0 || parsed > 10000) {
-      alert("Gain must be an integer between 0 and 10000");
-      gainInput.value = gainNode.gain.value;
-      return;
+        return Promise.all([stopped, recorded])
+            .then(() => {
+                return new Blob(data, { 'type': 'audio/ogg codecs=opus' })
+            })
     }
 
-    gainNode.gain.value = parsed;
-  }
+    async function processRecordedBlob(blob) {
+        var arrayBuffer = await blob.arrayBuffer()
+        var audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
+        console.log(audioBuffer)
+    }
 
-  var gainInput = document.getElementById("gainInput");
-  gainInput.onchange = gainChange;
+    function wait(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms))
+    }
 
-  gainChange();
+    var gainChange = function (event) {
+
+        var parsed = parseInt(gainInput.value, 10)
+
+        if (isNaN(parsed) || parsed < 0 || parsed > 10000) {
+            alert("Gain must be an integer between 0 and 10000")
+            gainInput.value = gainNode.gain.value
+            return
+        }
+
+        gainNode.gain.value = parsed
+    }
+
+    var gainInput = document.getElementById("gainInput")
+    gainInput.onchange = gainChange
+
+    gainChange()
 }
