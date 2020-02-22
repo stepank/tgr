@@ -9,7 +9,7 @@ async function init() {
     var source = audioCtx.createMediaStreamSource(stream)
 
     var gainNode = audioCtx.createGain()
-    gainNode.gain.value = 100
+    gainNode.gain.value = 1000
     source.connect(gainNode)
 
     var analyser = audioCtx.createAnalyser()
@@ -22,13 +22,48 @@ async function init() {
     var destination = audioCtx.createMediaStreamDestination()
     analyser.connect(destination)
 
-    visualize()
+    while (true) {
 
-    startRecording(destination.stream, 5000).then(processRecordedBlob)
+        var blob = await startRecording(destination.stream, 1000)
 
-    var recordedDataArray = null;
+        var arrayBuffer = await blob.arrayBuffer()
+        var audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
 
-    function visualize() {
+        console.log(audioBuffer)
+
+        var dataArray = audioBuffer.getChannelData(0)
+        squareValues(dataArray)
+
+        var processedDataArray = process(dataArray)
+
+        visualize(processedDataArray, gainNode.gain.value)
+
+        var maxValue = getMaxValue(dataArray)
+        if (maxValue > 0.9)
+            gainNode.gain.value = Math.round(gainNode.gain.value / 2)
+        if (maxValue < 0.6)
+            gainNode.gain.value = Math.round(gainNode.gain.value * 1.5)
+    }
+
+    function squareValues(dataArray) {
+        for (var i = 0; i < dataArray.length; i++) {
+            dataArray[i] = dataArray[i] * dataArray[i]
+        }
+    }
+
+    function getMaxValue(dataArray) {
+        var max = 0
+        for (var i = 0; i < dataArray.length; i++) {
+            if (dataArray[i] > max)
+                max = dataArray[i]
+        }
+        return max
+    }
+
+    function visualize(dataArray, gain) {
+
+        var controls = document.querySelector('.controls')
+        controls.textContent = 'Gain: ' + gain
 
         var canvas = document.querySelector('.visualizer')
         var canvasCtx = canvas.getContext("2d")
@@ -36,52 +71,34 @@ async function init() {
         var width = canvas.width
         var height = canvas.height
 
-        var bufferLength = analyser.fftSize
-        var dataArray = new Float32Array(bufferLength)
-
         canvasCtx.clearRect(0, 0, width, height)
+        canvasCtx.fillStyle = 'rgb(255, 255, 255)'
+        canvasCtx.fillRect(0, 0, width, height)
+        canvasCtx.lineWidth = 1
+        canvasCtx.strokeStyle = 'rgb(0, 0, 0)'
 
-        var draw = function () {
+        canvasCtx.beginPath()
 
-            if (recordedDataArray == null) {
-                drawVisual = requestAnimationFrame(draw)
-                analyser.getFloatTimeDomainData(dataArray)
+        var sliceWidth = width * 1.0 / dataArray.length
+
+        var x = 0
+
+        for (var i = 0; i < dataArray.length; i++) {
+
+            var v = dataArray[i]
+            var y = height * (1 - v)
+
+            if (i === 0) {
+                canvasCtx.moveTo(x, y)
             } else {
-                dataArray = recordedDataArray
+                canvasCtx.lineTo(x, y)
             }
 
-            canvasCtx.fillStyle = 'rgb(255, 255, 255)'
-            canvasCtx.fillRect(0, 0, width, height)
-
-            canvasCtx.lineWidth = 1
-            canvasCtx.strokeStyle = 'rgb(0, 0, 0)'
-
-            canvasCtx.beginPath()
-
-            processedDataArray = process(dataArray)
-            var sliceWidth = width * 1.0 / processedDataArray.length
-
-            var x = 0
-
-            for (var i = 0; i < processedDataArray.length; i++) {
-
-                var v = processedDataArray[i]
-                var y = height * (1 - v)
-
-                if (i === 0) {
-                    canvasCtx.moveTo(x, y)
-                } else {
-                    canvasCtx.lineTo(x, y)
-                }
-
-                x += sliceWidth
-            }
-
-            canvasCtx.lineTo(canvas.width, canvas.height / 2)
-            canvasCtx.stroke()
+            x += sliceWidth
         }
 
-        draw()
+        canvasCtx.lineTo(canvas.width, canvas.height / 2)
+        canvasCtx.stroke()
     }
 
     function process(buffer) {
@@ -104,6 +121,13 @@ async function init() {
         }
 
         result[result.length - 1] = sum / windowSize
+
+        var maxValue = getMaxValue(result)
+        var q = 0.9 / maxValue
+
+        for (var i = 0; i < result.length; i++) {
+            result[i] = result[i] * q
+        }
 
         return result
     }
@@ -133,16 +157,6 @@ async function init() {
             .then(() => {
                 return new Blob(data, { 'type': 'audio/ogg codecs=opus' })
             })
-    }
-
-    async function processRecordedBlob(blob) {
-
-        var arrayBuffer = await blob.arrayBuffer()
-        var audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
-
-        console.log(audioBuffer)
-
-        recordedDataArray = audioBuffer.getChannelData(0)
     }
 
     function wait(ms) {

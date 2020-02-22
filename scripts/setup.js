@@ -37,7 +37,7 @@ function setUp() {
         return;
     }
 
-    subtitle.remove()
+    subtitle.textContent = 'recording audio...'
 
     console.log('getUserMedia is supported')
 
