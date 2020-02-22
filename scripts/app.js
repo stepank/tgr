@@ -1,102 +1,45 @@
-let heading = document.querySelector('h1')
-heading.textContent = 'Click anywhere to start'
 document.body.onclick = init
 
-function init() {
+async function init() {
 
-    document.body.onclick = null
+    var audioCtx = setUp()
 
-    heading.textContent = 'Online Timegrapher'
+    var stream = await navigator.mediaDevices.getUserMedia({ audio: true })
 
-    // Older browsers might not implement mediaDevices at all, so we set an empty object first
-    if (navigator.mediaDevices === undefined) {
-        navigator.mediaDevices = {}
-    }
+    var source = audioCtx.createMediaStreamSource(stream)
 
-    // Some browsers partially implement mediaDevices. We can't just assign an object
-    // with getUserMedia as it would overwrite existing properties.
-    // Here, we will just add the getUserMedia property if it's missing.
-    if (navigator.mediaDevices.getUserMedia === undefined) {
-        navigator.mediaDevices.getUserMedia = function (constraints) {
-
-            // First get ahold of the legacy getUserMedia, if present
-            var getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia
-
-            // Some browsers just don't implement it - return a rejected promise with an error
-            // to keep a consistent interface
-            if (!getUserMedia) {
-                return Promise.reject(new Error('getUserMedia is not implemented in this browser'))
-            }
-
-            // Otherwise, wrap the call to the old navigator.getUserMedia with a Promise
-            return new Promise(function (resolve, reject) {
-                getUserMedia.call(navigator, constraints, resolve, reject)
-            })
-        }
-    }
-
-    // set up forked web audio context, for multiple browsers
-    // window. is needed otherwise Safari explodes
-
-    var audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+    var gainNode = audioCtx.createGain()
+    gainNode.gain.value = 100
+    source.connect(gainNode)
 
     var analyser = audioCtx.createAnalyser()
     analyser.fftSize = 32 * 1024
     analyser.minDecibels = -90
     analyser.maxDecibels = -10
     analyser.smoothingTimeConstant = 0
+    gainNode.connect(analyser)
 
-    var gainNode = audioCtx.createGain()
+    var destination = audioCtx.createMediaStreamDestination()
+    analyser.connect(destination)
 
-    // set up canvas context for visualizer
+    visualize()
 
-    var canvas = document.querySelector('.visualizer')
-    var canvasCtx = canvas.getContext("2d")
-
-    var intendedWidth = document.querySelector('.wrapper').clientWidth
-
-    canvas.setAttribute('width', intendedWidth)
-
-    var main = document.getElementById("main")
-    main.setAttribute('style', "")
-
-    // main block for doing the audio recording
-
-    if (navigator.mediaDevices.getUserMedia) {
-        console.log('getUserMedia is supported')
-        var constraints = { audio: true }
-        navigator.mediaDevices.getUserMedia(constraints)
-            .then(stream => {
-
-                var source = audioCtx.createMediaStreamSource(stream)
-                var destination = audioCtx.createMediaStreamDestination()
-
-                source.connect(gainNode)
-                gainNode.connect(analyser)
-                analyser.connect(destination)
-
-                visualize()
-
-                startRecording(destination.stream, 5000).then(processRecordedBlob)
-            })
-            .catch(err =>
-                console.log('The following gUM error occured: ' + err)
-            )
-    } else {
-        console.log('getUserMedia not supported on your browser!')
-    }
+    startRecording(destination.stream, 5000).then(processRecordedBlob)
 
     var recordedDataArray = null;
 
     function visualize() {
 
-        WIDTH = canvas.width
-        HEIGHT = canvas.height
+        var canvas = document.querySelector('.visualizer')
+        var canvasCtx = canvas.getContext("2d")
+
+        var width = canvas.width
+        var height = canvas.height
 
         var bufferLength = analyser.fftSize
         var dataArray = new Float32Array(bufferLength)
 
-        canvasCtx.clearRect(0, 0, WIDTH, HEIGHT)
+        canvasCtx.clearRect(0, 0, width, height)
 
         var draw = function () {
 
@@ -108,7 +51,7 @@ function init() {
             }
 
             canvasCtx.fillStyle = 'rgb(255, 255, 255)'
-            canvasCtx.fillRect(0, 0, WIDTH, HEIGHT)
+            canvasCtx.fillRect(0, 0, width, height)
 
             canvasCtx.lineWidth = 1
             canvasCtx.strokeStyle = 'rgb(0, 0, 0)'
@@ -116,14 +59,14 @@ function init() {
             canvasCtx.beginPath()
 
             processedDataArray = process(dataArray)
-            var sliceWidth = WIDTH * 1.0 / processedDataArray.length
+            var sliceWidth = width * 1.0 / processedDataArray.length
 
             var x = 0
 
             for (var i = 0; i < processedDataArray.length; i++) {
 
                 var v = processedDataArray[i]
-                var y = HEIGHT * (1 - v)
+                var y = height * (1 - v)
 
                 if (i === 0) {
                     canvasCtx.moveTo(x, y)
@@ -205,22 +148,4 @@ function init() {
     function wait(ms) {
         return new Promise(resolve => setTimeout(resolve, ms))
     }
-
-    var gainChange = function (event) {
-
-        var parsed = parseInt(gainInput.value, 10)
-
-        if (isNaN(parsed) || parsed < 0 || parsed > 10000) {
-            alert("Gain must be an integer between 0 and 10000")
-            gainInput.value = gainNode.gain.value
-            return
-        }
-
-        gainNode.gain.value = parsed
-    }
-
-    var gainInput = document.getElementById("gainInput")
-    gainInput.onchange = gainChange
-
-    gainChange()
 }
