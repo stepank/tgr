@@ -46,15 +46,17 @@ async function init() {
 
         var lookingForMin = true
         var prev = 2
+        var cur = null
         for (var i = 0; i < autocorrelation.length; i++) {
+            cur = autocorrelation[i]
             if (lookingForMin) {
-                if (autocorrelation[i] > prev)
+                if (cur > prev)
                     lookingForMin = false
             } else {
-                if (autocorrelation[i] < prev)
+                if (cur < prev && cur > 0.1)
                     break
             }
-            prev = autocorrelation[i]
+            prev = cur
         }
 
         var bph = Math.round(3600 / ((i - 1) / audioBuffer.sampleRate))
