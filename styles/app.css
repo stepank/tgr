@@ -28,13 +28,13 @@ h1 {
     margin: 0 auto;
 }
 
-header {
-    height: 120px;
+#main {
+    margin-bottom: 20px;
 }
 
 canvas {
     border: 1px solid black;
-    margin-bottom: -3px;
+    margin-top: 20px;
 }
 
 .controls {

@@ -22,28 +22,56 @@ async function init() {
     var destination = audioCtx.createMediaStreamDestination()
     analyser.connect(destination)
 
-    while (true) {
+    var bph = 'not known yet'
 
-        var blob = await startRecording(destination.stream, 1000)
+    for (var n = 0; n < 15; n++) {
+
+        var controls = document.querySelector('.controls')
+        controls.textContent = 'Gain: ' + gainNode.gain.value + ' | BPH: ' + bph
+
+        var blob = await startRecording(destination.stream, 2000)
 
         var arrayBuffer = await blob.arrayBuffer()
         var audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
 
         console.log(audioBuffer)
 
-        var dataArray = audioBuffer.getChannelData(0)
-        squareValues(dataArray)
+        var data = audioBuffer.getChannelData(0)
+        squareValues(data)
 
-        var processedDataArray = process(dataArray)
+        var movingAverageNormalizedData = getMovingAverageNormalized(data)
 
-        visualize(processedDataArray, gainNode.gain.value)
+        var count = audioBuffer.sampleRate * 0.25 // 250 ms should be enough for a maximum to show up
+        var autocorrelation = getAutocorrelation(movingAverageNormalizedData, count)
 
-        var maxValue = getMaxValue(dataArray)
+        var lookingForMin = true
+        var prev = 2
+        for (var i = 0; i < autocorrelation.length; i++) {
+            if (lookingForMin) {
+                if (autocorrelation[i] > prev)
+                    lookingForMin = false
+            } else {
+                if (autocorrelation[i] < prev)
+                    break
+            }
+            prev = autocorrelation[i]
+        }
+
+        var bph = Math.round(3600 / ((i - 1) / audioBuffer.sampleRate))
+        console.log('bph', bph)
+
+        visualize('wavesquared', movingAverageNormalizedData, 0, 1)
+        visualize('autocorrelation', autocorrelation, -1, 1)
+
+        var maxValue = getMaxValue(data)
         if (maxValue > 0.9)
             gainNode.gain.value = Math.round(gainNode.gain.value / 2)
         if (maxValue < 0.6)
             gainNode.gain.value = Math.round(gainNode.gain.value * 1.5)
     }
+
+    let subtitle = document.querySelector('h2')
+    subtitle.textContent = 'Stopped, reload the page to start again'
 
     function squareValues(dataArray) {
         for (var i = 0; i < dataArray.length; i++) {
@@ -60,12 +88,9 @@ async function init() {
         return max
     }
 
-    function visualize(dataArray, gain) {
+    function visualize(canvasId, data, min, max) {
 
-        var controls = document.querySelector('.controls')
-        controls.textContent = 'Gain: ' + gain
-
-        var canvas = document.querySelector('.visualizer')
+        var canvas = document.getElementById(canvasId)
         var canvasCtx = canvas.getContext("2d")
 
         var width = canvas.width
@@ -79,14 +104,14 @@ async function init() {
 
         canvasCtx.beginPath()
 
-        var sliceWidth = width * 1.0 / dataArray.length
+        var sliceWidth = width * 1.0 / data.length
 
         var x = 0
 
-        for (var i = 0; i < dataArray.length; i++) {
+        for (var i = 0; i < data.length; i++) {
 
-            var v = dataArray[i]
-            var y = height * (1 - v)
+            var v = data[i]
+            var y = height * (max - v) / (max - min)
 
             if (i === 0) {
                 canvasCtx.moveTo(x, y)
@@ -97,25 +122,24 @@ async function init() {
             x += sliceWidth
         }
 
-        canvasCtx.lineTo(canvas.width, canvas.height / 2)
         canvasCtx.stroke()
     }
 
-    function process(buffer) {
+    function getMovingAverageNormalized(data) {
 
         const windowSize = 1024
 
-        var result = new Float32Array(buffer.length - windowSize + 1)
+        var result = new Float32Array(data.length - windowSize + 1)
 
         var sum = 0
-        for (var i = 0; i < buffer.length; i++) {
+        for (var i = 0; i < data.length; i++) {
             var rem
-            var add = buffer[i]
+            var add = data[i]
             if (i < windowSize) {
                 rem = 0
             } else {
                 result[i - windowSize] = sum / windowSize
-                rem = buffer[i - windowSize]
+                rem = data[i - windowSize]
             }
             sum += add * add - rem * rem
         }
@@ -130,6 +154,44 @@ async function init() {
         }
 
         return result
+    }
+
+    function getAutocorrelation(data, count) {
+
+        var begin = performance.now()
+
+        var mean = getMean(data)
+
+        var dataWoMean = new Float32Array(data.length)
+        for (var i = 0; i < data.length; i++)
+            dataWoMean[i] = data[i] - mean
+
+        var result = new Float32Array(count)
+
+        for (var lag = 0; lag < result.length; lag++) {
+            var sum = 0
+            for (var i = 0; i < dataWoMean.length - lag; i++) {
+                sum += dataWoMean[i] * dataWoMean[i + lag]
+            }
+            result[lag] = sum
+        }
+
+        var sum0 = result[0]
+        for (var lag = 0; lag < result.length; lag++) {
+            result[lag] /= sum0
+        }
+
+        console.log('autocorrelation took ' + Math.round(performance.now() - begin) + ' ms')
+
+        return result;
+    }
+
+    function getMean(data) {
+        var sum = 0
+        for (var i = 0; i < data.length; i++) {
+            sum += data[i]
+        }
+        return sum / data.length
     }
 
     function startRecording(stream, lengthInMs) {

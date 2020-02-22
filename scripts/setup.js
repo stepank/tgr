@@ -37,13 +37,16 @@ function setUp() {
         return;
     }
 
-    subtitle.textContent = 'recording audio...'
+    subtitle.textContent = 'Analyzing audio imput...'
 
     console.log('getUserMedia is supported')
 
     var intendedWidth = document.querySelector('.wrapper').clientWidth
 
-    var canvas = document.querySelector('.visualizer')
+    var canvas = document.getElementById('wavesquared')
+    canvas.setAttribute('width', intendedWidth)
+
+    canvas = document.getElementById('autocorrelation')
     canvas.setAttribute('width', intendedWidth)
 
     var main = document.getElementById("main")
