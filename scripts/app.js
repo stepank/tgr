@@ -22,12 +22,14 @@ async function init() {
     var destination = audioCtx.createMediaStreamDestination()
     analyser.connect(destination)
 
-    var bph = 'not known yet'
+    const expectedBph = 21600
+    var bph = 'n/a'
+    var error = 'n/a'
 
-    for (var n = 0; n < 15; n++) {
+    for (var n = 0; n < 60; n++) {
 
         var controls = document.querySelector('.controls')
-        controls.textContent = 'Gain: ' + gainNode.gain.value + ' | BPH: ' + bph
+        controls.textContent = 'Gain: ' + gainNode.gain.value + ' | BPH: ' + bph + ' | Daily error: ' + error
 
         var blob = await startRecording(destination.stream, 2000)
 
@@ -42,28 +44,34 @@ async function init() {
         var movingAverageNormalizedData = getMovingAverageNormalized(data)
 
         var count = audioBuffer.sampleRate * 0.25 // 250 ms should be enough for a maximum to show up
-        var autocorrelation = getAutocorrelation(movingAverageNormalizedData, count)
+        var autocorr = getAutocorrelation(movingAverageNormalizedData, count)
 
         var lookingForMin = true
+        var bestMaxAt = null
+        var maxAt = null
         var prev = 2
         var cur = null
-        for (var i = 0; i < autocorrelation.length; i++) {
-            cur = autocorrelation[i]
+        for (var i = 0; i < autocorr.length; i++) {
+            cur = autocorr[i]
             if (lookingForMin) {
                 if (cur > prev)
                     lookingForMin = false
             } else {
-                if (cur < prev && cur > 0.1)
-                    break
+                if (cur < prev) {
+                    lookingForMin = true
+                    maxAt = i - 1
+                    if (bestMaxAt == null || prev > autocorr[bestMaxAt])
+                        bestMaxAt = maxAt
+                }
             }
             prev = cur
         }
 
-        var bph = Math.round(3600 / ((i - 1) / audioBuffer.sampleRate))
-        console.log('bph', bph)
+        var bph = Math.round(3600 / bestMaxAt * audioBuffer.sampleRate)
+        var error = Math.round((bph - expectedBph) / expectedBph * 3600 * 24) + ' sec'
 
         visualize('wavesquared', movingAverageNormalizedData, 0, 1)
-        visualize('autocorrelation', autocorrelation, -1, 1)
+        visualize('autocorrelation', autocorr, -1, 1, bestMaxAt)
 
         var maxValue = getMaxValue(data)
         if (maxValue > 0.9)
@@ -90,7 +98,7 @@ async function init() {
         return max
     }
 
-    function visualize(canvasId, data, min, max) {
+    function visualize(canvasId, data, min, max, markX) {
 
         var canvas = document.getElementById(canvasId)
         var canvasCtx = canvas.getContext("2d")
@@ -125,6 +133,12 @@ async function init() {
         }
 
         canvasCtx.stroke()
+
+        if (markX != null) {
+            console.log('rect', markX * sliceWidth - 1, height * (max - data[markX]) / (max - min) - 2)
+            canvasCtx.fillStyle = 'rgb(255, 0, 0)'
+            canvasCtx.fillRect(markX * sliceWidth - 1, height * (max - data[markX]) / (max - min) - 2, 5, 5)
+        }
     }
 
     function getMovingAverageNormalized(data) {
